@@ -69,8 +69,8 @@ add_dependencies(tf_inception_client
 
 target_link_libraries(tf_inception_client
     tfserving
-    /usr/local/lib/tensorflow_cc/libtensorflow-core.a
-    /usr/local/lib/tensorflow_cc/nsync.a
+    tensorflow-core
+    nsync
     gRPC::grpc++_reflection
     protobuf::libprotobuf
 )
