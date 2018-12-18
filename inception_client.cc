@@ -24,6 +24,76 @@ limitations under the License.
 #include "tensorflow/core/util/command_line_flags.h"
 #include "tensorflow_serving/apis/prediction_service.grpc.pb.h"
 
+#include <algorithm>
+#include <boost/filesystem.hpp>
+//#include <glog/logging.h>
+
+using namespace boost::system;
+namespace filesys = boost::filesystem;
+
+/*
+ * Get the list of all files in given directory and its sub directories.
+ *
+ * Arguments
+ * 	dirPath : Path of directory to be traversed
+ * 	dirSkipList : List of folder names to be skipped
+ *
+ * Returns:
+ * 	vector containing paths of all the files in given directory and its sub directories
+ *
+ */
+static std::vector<std::string> get_all_files_in_path(const std::string &dirPath, const std::vector<std::string> dirSkipList = {})
+{
+  // Create a vector of string
+  std::vector<std::string> listOfFiles;
+  try {
+    // Check if given path exists and points to a directory
+    if (filesys::exists(dirPath) && filesys::is_directory(dirPath))
+    {
+      // Create a Recursive Directory Iterator object and points to the starting of directory
+      filesys::recursive_directory_iterator iter(dirPath);
+
+      // Create a Recursive Directory Iterator object pointing to end.
+      filesys::recursive_directory_iterator end;
+
+      // Iterate till end
+      while (iter != end)
+      {
+        // Check if current entry is a directory and if exists in skip list
+        if (filesys::is_directory(iter->path()) &&
+            (std::find(dirSkipList.begin(), dirSkipList.end(), iter->path().filename()) != dirSkipList.end()))
+        {
+          // Skip the iteration of current directory pointed by iterator
+          // Boost Fileystsem  API to skip current directory iteration
+          iter.no_push();
+          // c++17 Filesystem API to skip current directory iteration
+          //iter.disable_recursion_pending();
+        }
+        else
+        {
+          // Add the name in vector
+          listOfFiles.push_back(iter->path().string());
+        }
+
+        error_code ec;
+        // Increment the iterator to point to next entry in recursive iteration
+        iter.increment(ec);
+        if (ec) {
+          std::cerr  << "Error While Accessing : " << iter->path().string() << " :: " << ec.message() << std::endl;
+        }
+      }
+    } else {
+      listOfFiles.push_back(dirPath);
+    }
+
+  }
+  catch (std::system_error & e)
+  {
+    std::cerr << "get_all_files_in_path,  Exception :: " << e.what() << std::endl;
+  }
+  return listOfFiles;
+}
+
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
@@ -135,11 +205,17 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  std::vector<std::string> batched_filenames = get_all_files_in_path(image_file);
+  std::sort(batched_filenames.begin(), batched_filenames.end());
+
+
   ServingClient guide(
       grpc::CreateChannel(server_port, grpc::InsecureChannelCredentials()));
   std::cout << "calling predict using file: " << image_file << "  ..."
             << std::endl;
-  std::cout << guide.callPredict(model_name, model_signature_name, image_file)
-            << std::endl;
+  for (auto i : batched_filenames) {
+    std::cout << guide.callPredict(model_name, model_signature_name, i)
+              << std::endl;
+  }
   return 0;
 }
