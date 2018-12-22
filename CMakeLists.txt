@@ -69,6 +69,12 @@ INSTALL(TARGETS tfserving
         ARCHIVE DESTINATION lib
         )
 
+install(DIRECTORY "${PROTO_SRC_DIR}/" # source directory
+        DESTINATION "include" # target directory
+        FILES_MATCHING # install only matched files
+        PATTERN "*.h" # select header files
+)
+
 add_executable(tf_inception_client
         ${CMAKE_CURRENT_SOURCE_DIR}/inception_client.cc
         )
